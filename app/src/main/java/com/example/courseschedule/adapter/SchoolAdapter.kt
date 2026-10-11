@@ -6,7 +6,9 @@ package com.example.courseschedule.adapter
  * @param id 唯一标识（如 CUST）
  * @param name 学校名称（如 长春理工大学）
  * @param initial 首字母（用于排序）
- * @param script 适配脚本内容（JavaScript）
+ * @param script 适配脚本内容（JavaScript，在内置浏览器中运行）
+ * @param importUrl 教务系统网址（打开浏览器时的默认地址）
+ * @param category 分类（GENERAL_TOOL = 通用教务工具，SCHOOL = 具体学校）
  * @param remark 备注说明
  */
 data class SchoolAdapter(
@@ -14,9 +16,12 @@ data class SchoolAdapter(
     val name: String,
     val initial: String = "",
     val script: String = "",
+    val importUrl: String = "",
+    val category: String = "",
     val remark: String = "",
 ) {
     val displayName: String get() = if (name.isBlank()) id else name
+    val isGeneralTool: Boolean get() = category == "GENERAL_TOOL"
 }
 
 /**

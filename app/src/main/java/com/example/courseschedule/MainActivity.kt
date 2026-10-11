@@ -33,6 +33,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.courseschedule.data.BackgroundMode
 import com.example.courseschedule.data.ThemeMode
+import com.example.courseschedule.adapter.SchoolAdapter
+import com.example.courseschedule.ui.BrowserImportScreen
 import com.example.courseschedule.ui.EduImportScreen
 import com.example.courseschedule.ui.ImportScreen
 import com.example.courseschedule.ui.ScheduleScreen
@@ -77,6 +79,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         val navController = rememberNavController()
+                        var selectedAdapter by remember { mutableStateOf<SchoolAdapter?>(null) }
                         NavHost(navController = navController, startDestination = "schedule") {
                             composable("schedule") {
                                 ScheduleScreen(
@@ -96,7 +99,26 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             composable("edu") {
-                                EduImportScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+                                EduImportScreen(
+                                    viewModel = viewModel,
+                                    onBack = { navController.popBackStack() },
+                                    onOpenAdapter = { adapter ->
+                                        selectedAdapter = adapter
+                                        navController.navigate("eduBrowser")
+                                    },
+                                )
+                            }
+                            composable("eduBrowser") {
+                                val adapter = selectedAdapter
+                                if (adapter == null) {
+                                    LaunchedEffect(Unit) { navController.popBackStack() }
+                                } else {
+                                    BrowserImportScreen(
+                                        adapter = adapter,
+                                        viewModel = viewModel,
+                                        onBack = { navController.popBackStack() },
+                                    )
+                                }
                             }
                         }
                     }

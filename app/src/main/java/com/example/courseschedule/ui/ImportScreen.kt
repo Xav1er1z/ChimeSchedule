@@ -177,7 +177,7 @@ fun ImportScreen(
             TutorialCard()
 
             Spacer(Modifier.height(20.dp))
-            ImportButton("教务系统导入", "选择学校适配脚本，输入账号密码一键导入") {
+            ImportButton("教务系统导入", "内置浏览器登录教务，一键抓取课表") {
                 onOpenEdu()
             }
             Spacer(Modifier.height(12.dp))

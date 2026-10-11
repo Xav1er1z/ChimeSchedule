@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,14 +11,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -43,60 +40,48 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.courseschedule.adapter.AdapterEngine
 import com.example.courseschedule.adapter.AdapterRepository
-import com.example.courseschedule.adapter.AdapterResult
 import com.example.courseschedule.adapter.SchoolAdapter
-import com.example.courseschedule.data.SectionTime
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @Composable
 fun EduImportScreen(
     viewModel: ScheduleViewModel,
     onBack: () -> Unit,
+    onOpenAdapter: (SchoolAdapter) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val repo = remember { AdapterRepository(context) }
-    val engine = remember { AdapterEngine(context) }
 
     var adapters by remember { mutableStateOf(repo.all()) }
-    var selected by remember { mutableStateOf<SchoolAdapter?>(null) }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var running by remember { mutableStateOf(false) }
-    var result by remember { mutableStateOf<AdapterResult?>(null) }
+    var query by remember { mutableStateOf("") }
+    var updating by remember { mutableStateOf(false) }
     var statusText by remember { mutableStateOf("") }
-    var showScriptEditor by remember { mutableStateOf(false) }
+    var showEditor by remember { mutableStateOf(false) }
+    var editingTarget by remember { mutableStateOf<SchoolAdapter?>(null) }
     var editingScript by remember { mutableStateOf("") }
-    var repoUrl by remember { mutableStateOf(AdapterRepository.DEFAULT_REPO_URL) }
-    var showRepoDialog by remember { mutableStateOf(false) }
 
-    fun runImport() {
-        val adapter = selected ?: return
-        running = true
-        result = null
-        statusText = "正在运行适配脚本…"
-        scope.launch {
-            val r = withContext(Dispatchers.Default) {
-                engine.run(adapter, username.trim(), password)
-            }
-            result = r
-            running = false
-            statusText = if (r.isSuccess) "成功获取 ${r.courses.size} 门课程" else (r.error ?: "导入失败")
+    val filtered = remember(adapters, query) {
+        val q = query.trim()
+        if (q.isBlank()) adapters
+        else adapters.filter {
+            it.name.contains(q, true) || it.id.contains(q, true) ||
+                it.remark.contains(q, true) || it.initial.equals(q, true)
         }
     }
 
-    if (showScriptEditor) {
+    val general = filtered.filter { it.isGeneralTool || it.script.isNotBlank() && it.category != "SCHOOL" }
+    val schools = filtered.filter { it.category == "SCHOOL" }
+
+    if (showEditor) {
         AlertDialog(
-            onDismissRequest = { showScriptEditor = false },
-            title = { Text("编辑适配脚本") },
+            onDismissRequest = { showEditor = false },
+            title = { Text(editingTarget?.displayName ?: "编辑脚本") },
             text = {
                 Column {
                     Text(
-                        "按脚本 API 说明编写（见示例脚本注释）。",
+                        "脚本在内置浏览器中运行，可操作网页 DOM。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -105,71 +90,31 @@ fun EduImportScreen(
                         value = editingScript,
                         onValueChange = { editingScript = it },
                         label = { Text("JavaScript") },
-                        minLines = 8,
-                        maxLines = 16,
+                        minLines = 6,
+                        maxLines = 12,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    val adapter = (selected ?: repo.all().first()).copy(
-                        id = if (selected?.id == "CUSTOM" || selected == null) "CUSTOM" else selected!!.id + "_custom",
-                        name = (selected?.name ?: "自定义") + "（已修改）",
+                    val target = editingTarget
+                    val saved = SchoolAdapter(
+                        id = if (target == null || target.id == "custom") "custom" else "${target.id}_custom",
+                        name = (target?.name ?: "自定义") + "（已修改）",
+                        initial = target?.initial.orEmpty(),
                         script = editingScript,
+                        importUrl = target?.importUrl.orEmpty(),
+                        category = "GENERAL_TOOL",
+                        remark = "用户自定义脚本",
                     )
-                    repo.saveCustom(adapter)
+                    repo.saveCustom(saved)
                     adapters = repo.all()
-                    selected = adapter
-                    showScriptEditor = false
+                    showEditor = false
                 }) { Text("保存") }
             },
             dismissButton = {
-                TextButton(onClick = { showScriptEditor = false }) { Text("取消") }
-            },
-        )
-    }
-
-    if (showRepoDialog) {
-        AlertDialog(
-            onDismissRequest = { showRepoDialog = false },
-            title = { Text("从网络更新适配器") },
-            text = {
-                Column {
-                    Text(
-                        "填入适配脚本仓库的 JSON 地址，格式为数组：[{id,name,script}]",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = repoUrl,
-                        onValueChange = { repoUrl = it },
-                        label = { Text("仓库地址") },
-                        minLines = 2,
-                        maxLines = 4,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showRepoDialog = false
-                    running = true
-                    statusText = "正在拉取适配器…"
-                    scope.launch {
-                        val r = repo.fetchRemote(repoUrl.trim())
-                        adapters = repo.all()
-                        running = false
-                        statusText = r.fold(
-                            onSuccess = { "已更新 $it 个适配器" },
-                            onFailure = { "更新失败：${it.message}" },
-                        )
-                    }
-                }) { Text("更新") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRepoDialog = false }) { Text("取消") }
+                TextButton(onClick = { showEditor = false }) { Text("取消") }
             },
         )
     }
@@ -177,217 +122,162 @@ fun EduImportScreen(
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = MaterialTheme.colorScheme.primary)
-                }
-                Text("教务导入", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
-            }
-        },
-    ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp),
-        ) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "选择你学校的适配脚本，输入教务系统账号密码即可导入。",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { showRepoDialog = true }, shape = RoundedCornerShape(12.dp)) {
-                    Text("更新适配器")
-                }
-                OutlinedButton(
-                    onClick = {
-                        editingScript = selected?.script ?: AdapterRepository.DEMO_SCRIPT
-                        showScriptEditor = true
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Text("编辑脚本")
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-            Text("选择学校", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
-            Spacer(Modifier.height(8.dp))
-            adapters.forEach { adapter ->
-                val isSel = selected?.id == adapter.id
+            Column {
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            if (isSel) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                            else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                        )
-                        .border(
-                            1.dp,
-                            if (isSel) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outlineVariant,
-                            RoundedCornerShape(12.dp),
-                        )
-                        .clickable { selected = adapter }
-                        .padding(12.dp),
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            adapter.displayName,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        if (adapter.remark.isNotBlank()) {
-                            Text(
-                                adapter.remark,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = MaterialTheme.colorScheme.primary)
                     }
-                    if (isSel) {
-                        Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary)
-                    }
+                    Text(
+                        "教务系统导入",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
                 }
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    leadingIcon = { Icon(Icons.Filled.Search, null) },
+                    placeholder = { Text("搜索学校名称") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                )
+                Spacer(Modifier.height(8.dp))
             }
-
-            if (selected != null) {
-                Spacer(Modifier.height(20.dp))
-                Text("教务账号", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    label = { Text("学号 / 用户名") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("密码") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(8.dp))
+        },
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item {
                 Text(
-                    "账号密码仅在本机使用，用于登录你学校的教务系统，不会上传到其它服务器。",
+                    "选择你学校的教务系统，在内置浏览器里登录后点「执行导入」。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
 
-                Spacer(Modifier.height(16.dp))
-                Button(
-                    onClick = { runImport() },
-                    enabled = !running && username.isNotBlank() && password.isNotBlank(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(14.dp),
-                ) {
-                    Text(if (running) "导入中…" else "开始导入", fontWeight = FontWeight.SemiBold)
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            updating = true
+                            statusText = "正在更新学校列表…"
+                            scope.launch {
+                                val r = repo.fetchRemote()
+                                adapters = repo.all()
+                                updating = false
+                                statusText = r.fold(
+                                    onSuccess = { "已更新 $it 个适配脚本" },
+                                    onFailure = { "更新失败：${it.message ?: "网络问题"}" },
+                                )
+                            }
+                        },
+                        enabled = !updating,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f),
+                    ) { Text(if (updating) "更新中…" else "更新学校列表") }
+
+                    OutlinedButton(
+                        onClick = {
+                            editingTarget = adapters.firstOrNull { it.id == "custom" }
+                            editingScript = editingTarget?.script.orEmpty()
+                            showEditor = true
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f),
+                    ) { Text("写自定义脚本") }
                 }
             }
 
             if (statusText.isNotBlank()) {
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    statusText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (result?.isSuccess == true) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.error,
-                )
-            }
-
-            result?.let { r ->
-                if (r.courses.isNotEmpty()) {
-                    Spacer(Modifier.height(12.dp))
+                item {
                     Text(
-                        "识别到 ${r.courses.size} 门课程：",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        statusText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
                     )
-                    Spacer(Modifier.height(6.dp))
-                    r.courses.take(12).forEach { c ->
-                        Text(
-                            "周${c.dayOfWeek + 1} 第${c.startSection}-${c.endSection}节 · ${c.name}" +
-                                (if (c.location.isNotBlank()) " · ${c.location}" else ""),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                    if (r.courses.size > 12) {
-                        Text("… 等共 ${r.courses.size} 门", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(
-                            onClick = {
-                                if (r.timeTable.isNotEmpty()) {
-                                    val sections = r.timeTable.map { Triple(it.first, it.second, it.third) }
-                                        .sortedBy { it.first }
-                                        .map { SectionTime(it.first, it.second, it.third) }
-                                    val newSettings = viewModel.data.value.settings.copy(
-                                        sections = sections,
-                                        semesterStartDate = r.semesterStart.ifBlank {
-                                            viewModel.data.value.settings.semesterStartDate
-                                        },
-                                    )
-                                    viewModel.updateSettings(newSettings)
-                                } else if (r.semesterStart.isNotBlank()) {
-                                    val newSettings = viewModel.data.value.settings.copy(
-                                        semesterStartDate = r.semesterStart,
-                                    )
-                                    viewModel.updateSettings(newSettings)
-                                }
-                                viewModel.replaceCourses(viewModel.data.value.courses + r.courses)
-                                onBack()
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                        ) { Text("合并到课表") }
-                        OutlinedButton(
-                            onClick = {
-                                viewModel.replaceCourses(r.courses)
-                                onBack()
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                        ) { Text("覆盖课表") }
-                    }
-                }
-
-                if (r.logs.isNotEmpty()) {
-                    Spacer(Modifier.height(16.dp))
-                    Text("运行日志", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
-                    Spacer(Modifier.height(6.dp))
-                    SelectionContainer {
-                        Text(
-                            r.logs.takeLast(40).joinToString("\n"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                 }
             }
 
-            Spacer(Modifier.height(32.dp))
+            if (general.isNotEmpty()) {
+                item {
+                    SectionTitle("通用教务系统")
+                }
+                items(general, key = { "g_${it.id}" }) { adapter ->
+                    AdapterRow(adapter) { onOpenAdapter(adapter) }
+                }
+            }
+
+            if (schools.isNotEmpty()) {
+                item {
+                    SectionTitle("学校（已适配）")
+                }
+                items(schools, key = { "s_${it.id}" }) { adapter ->
+                    AdapterRow(adapter) { onOpenAdapter(adapter) }
+                }
+            }
+
+            if (filtered.isEmpty()) {
+                item {
+                    Text(
+                        "没有找到「$query」。可以点「更新学校列表」获取更多，或用「粘贴文本导入」。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+    )
+}
+
+@Composable
+private fun AdapterRow(adapter: SchoolAdapter, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.65f))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+    ) {
+        Text(
+            adapter.displayName,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        if (adapter.remark.isNotBlank()) {
+            Text(
+                adapter.remark,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
