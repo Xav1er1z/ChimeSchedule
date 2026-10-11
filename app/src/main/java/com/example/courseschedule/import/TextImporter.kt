@@ -156,15 +156,20 @@ object TextImporter {
             else if (teacher.isBlank()) teacher = p
         }
 
+        // 节次范围约束，避免越界导致课表渲染异常
+        val maxSection = 20
+        val s = startSection.coerceIn(1, maxSection)
+        val e = endSection.coerceIn(s, maxSection)
+
         return Course(
             name = name,
             teacher = teacher,
             location = location,
-            dayOfWeek = day,
-            startSection = startSection,
-            endSection = maxOf(endSection, startSection),
+            dayOfWeek = day.coerceIn(0, 6),
+            startSection = s,
+            endSection = e,
             weekType = weekType,
-            customWeeks = customWeeks,
+            customWeeks = customWeeks.filter { it in 1..30 },
             colorArgb = courseColorArgb[colorIndex % courseColorArgb.size],
         )
     }

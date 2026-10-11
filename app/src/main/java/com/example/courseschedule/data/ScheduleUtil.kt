@@ -34,7 +34,7 @@ fun todayDayOfWeek(): Int = LocalDate.now().dayOfWeek.value - 1
 
 /** 某天、某周要上的课（按开始节次排序） */
 fun coursesForDay(courses: List<Course>, dayOfWeek: Int, week: Int): List<Course> =
-    courses.filter { it.dayOfWeek == dayOfWeek && it.occursInWeek(week) }
+    courses.filter { it.dayOfWeek == dayOfWeek && it.occursInWeek(week) && it.startSection >= 1 }
         .sortedBy { it.startSection }
 
 /**
@@ -56,12 +56,21 @@ data class CourseBlock(
 }
 
 /** 把某周的课程合并成显示块（同名同老师且相邻的课连成一块） */
-fun mergeCourses(courses: List<Course>, week: Int): List<CourseBlock> {
+fun mergeCourses(courses: List<Course>, week: Int, maxSections: Int = 20): List<CourseBlock> {
     return courses
         .filter { it.occursInWeek(week) }
+        // 过滤掉节次非法的课程，避免渲染时越界
+        .filter { it.dayOfWeek in 0..6 && it.startSection >= 1 && it.endSection >= it.startSection }
+        .map { c ->
+            // 节次上限约束
+            val s = c.startSection.coerceIn(1, maxSections)
+            val e = c.endSection.coerceIn(s, maxSections)
+            if (s != c.startSection || e != c.endSection) c.copy(startSection = s, endSection = e) else c
+        }
         .groupBy { Triple(it.dayOfWeek, it.name.trim(), it.teacher.trim()) }
         .flatMap { (key, list) ->
             val (day, name, teacher) = key
+            if (list.isEmpty()) return@flatMap emptyList<CourseBlock>()
             val sorted = list.sortedBy { it.startSection }
             val blocks = mutableListOf<CourseBlock>()
 

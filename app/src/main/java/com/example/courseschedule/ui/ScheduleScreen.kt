@@ -94,8 +94,8 @@ fun ScheduleScreen(
     val scheduleNow = remember(data.courses, settings, now) {
         computeScheduleNow(data.courses, settings.sections, settings.currentWeek, now)
     }
-    val mergedBlocks = remember(data.courses, settings.currentWeek) {
-        mergeCourses(data.courses, settings.currentWeek)
+    val mergedBlocks = remember(data.courses, settings.currentWeek, settings.sections.size) {
+        mergeCourses(data.courses, settings.currentWeek, settings.sections.size.coerceAtLeast(1))
     }
     val weekDays = remember(settings.semesterStartDate, settings.currentWeek) {
         weekDates(settings.semesterStartDate, settings.currentWeek)
@@ -271,7 +271,13 @@ private fun CountdownBar(scheduleNow: ScheduleNow, now: LocalTime) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 4.dp)
-            .frostedGlass(16.dp),
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.62f))
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                RoundedCornerShape(16.dp),
+            ),
     ) {
         Row(
             Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -358,7 +364,18 @@ private fun ScheduleGrid(
 
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             Box(Modifier.width(containerWidth).height(totalHeight)) {
-                Box(Modifier.matchParentSize().frostedGlass(16.dp))
+                // 网格底板：半透明表面（大尺寸滚动区域内不用背景模糊，避免性能与稳定性问题）
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.62f))
+                        .border(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            RoundedCornerShape(16.dp),
+                        ),
+                )
 
                 // 休息日红色底
                 for (i in 0..6) {
@@ -529,7 +546,17 @@ private fun DayView(
         )
         Spacer(Modifier.height(10.dp))
         if (blocks.isEmpty()) {
-            Box(Modifier.fillMaxWidth().frostedGlass(18.dp)) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.62f))
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        RoundedCornerShape(18.dp),
+                    ),
+            ) {
                 Text(
                     "今天没有课 🎉",
                     style = MaterialTheme.typography.bodyLarge,

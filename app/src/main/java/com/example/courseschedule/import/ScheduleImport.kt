@@ -38,9 +38,9 @@ object CsvImporter {
                 val name = fields[0].trim()
                 val teacher = fields.getOrElse(1) { "" }.trim()
                 val location = fields.getOrElse(2) { "" }.trim()
-                val day = fields[3].trim().toInt() - 1
-                val start = fields[4].trim().toInt()
-                val end = fields.getOrElse(5) { fields[4] }.trim().toInt()
+                val day = (fields[3].trim().toIntOrNull() ?: 1) - 1
+                val rawStart = fields[4].trim().toIntOrNull() ?: 1
+                val rawEnd = fields.getOrElse(5) { fields[4] }.trim().toIntOrNull() ?: rawStart
                 val weekType = parseWeekType(fields.getOrElse(6) { "每周" }.trim())
                 val weeks = if (weekType == WeekType.CUSTOM) {
                     parseWeekList(fields.getOrElse(7) { "" })
@@ -51,6 +51,9 @@ object CsvImporter {
                     warnings.add("第 ${i + 1} 行内容无法识别，已跳过：$line")
                     continue
                 }
+                // 节次范围约束，避免越界
+                val start = rawStart.coerceIn(1, 20)
+                val end = rawEnd.coerceIn(start, 20)
                 courses.add(
                     Course(
                         name = name,
@@ -60,7 +63,7 @@ object CsvImporter {
                         startSection = start,
                         endSection = end,
                         weekType = weekType,
-                        customWeeks = weeks,
+                        customWeeks = weeks.filter { it in 1..30 },
                         colorArgb = courseColorArgb[courses.size % courseColorArgb.size],
                     ),
                 )
@@ -388,15 +391,19 @@ internal fun parseCourseCellText(
         }
     }
 
+    // 节次范围约束
+    val s = startSection.coerceIn(1, 20)
+    val e = (startSection + span - 1).coerceIn(s, 20)
+
     return Course(
         name = name,
         teacher = teacher,
         location = location,
-        dayOfWeek = day,
-        startSection = startSection,
-        endSection = startSection + span - 1,
+        dayOfWeek = day.coerceIn(0, 6),
+        startSection = s,
+        endSection = e,
         weekType = weekType,
-        customWeeks = weeks,
+        customWeeks = weeks.filter { it in 1..30 },
         colorArgb = colorArgb,
     )
 }

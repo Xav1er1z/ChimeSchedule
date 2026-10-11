@@ -147,10 +147,12 @@ object WakeUpImporter {
     }
 
     private fun desDecrypt(value: ByteArray, key: String): ByteArray {
+        if (value.isEmpty() || value.size % 8 != 0) throw WakeUpException("WakeUp 响应数据格式异常")
         val subkeys = desSubkeys(key).reversed()
         val plain = value.toList().chunked(8) { it.toByteArray() }
             .map { desBlock(it, subkeys) }
             .reduce { a, b -> a + b }
+        if (plain.isEmpty()) throw WakeUpException("WakeUp 响应解密为空")
         val padding = plain.last().toInt()
         if (padding < 1 || padding > 8) throw WakeUpException("WakeUp 响应解密失败")
         return plain.copyOfRange(0, plain.size - padding)
@@ -354,23 +356,23 @@ object WakeUpImporter {
         var colorIndex = 0
 
         val lines = data.split("\n").filter { it.isNotBlank() }
-        for ((idx, line) in lines.withIndex()) {
+        for (line in lines) {
             try {
                 val obj = JSONObject(line)
-                // WakeUp 的字段：name, teacher, room, day(or dayOfWeek), startNode, step, weeks
                 val name = obj.optString("name").ifBlank { obj.optString("courseName") }
                 if (name.isBlank()) continue
                 val teacher = obj.optString("teacher")
                 val room = obj.optString("room").ifBlank { obj.optString("location") }
                 val day = obj.optInt("day", -1).takeIf { it in 0..6 }
                     ?: (obj.optInt("dayOfWeek", 1) - 1).coerceIn(0, 6)
-                var start = obj.optInt("startNode", 0)
-                if (start > 0) start -= 1
+                // startNode 从 1 开始计（1 表示第一节）
+                var start = obj.optInt("startNode", 1)
+                if (start < 1) start = 1
                 val step = obj.optInt("step", 1).coerceAtLeast(1)
                 val weeks = obj.optInt("weeks", 0)
-                val weekType = when {
-                    weeks == 1 -> WeekType.ODD
-                    weeks == 2 -> WeekType.EVEN
+                val weekType = when (weeks) {
+                    1 -> WeekType.ODD
+                    2 -> WeekType.EVEN
                     else -> WeekType.ALL
                 }
 
@@ -379,9 +381,9 @@ object WakeUpImporter {
                         name = name,
                         teacher = teacher,
                         location = room,
-                        dayOfWeek = day,
-                        startSection = if (start > 0) start else (idx + 1),
-                        endSection = if (start > 0) start + step - 1 else (idx + 1),
+                        dayOfWeek = day.coerceIn(0, 6),
+                        startSection = start.coerceIn(1, 20),
+                        endSection = (start + step - 1).coerceIn(1, 20),
                         weekType = weekType,
                         colorArgb = courseColorArgb[colorIndex % courseColorArgb.size],
                     ),
@@ -391,7 +393,7 @@ object WakeUpImporter {
                 // 跳过无法解析的行
             }
         }
-        if (courses.isEmpty()) warnings.add("口令解析后没有课程")
+        if (courses.isEmpty()) warnings.add("口令解析后没有课程，可能是格式不兼容或口令已失效")
         return ImportResult(courses, warnings)
     }
 }

@@ -1,6 +1,8 @@
 package com.example.courseschedule.import
 
+import com.example.courseschedule.data.Course
 import com.example.courseschedule.data.WeekType
+import com.example.courseschedule.data.mergeCourses
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -103,5 +105,44 @@ class ImporterTest {
         assertTrue("应识别出高等数学", math != null)
         assertEquals(1, math!!.startSection)
         assertEquals(2, math.endSection)
+    }
+
+    @Test
+    fun `边界 空输入不会崩溃`() {
+        val r1 = TextImporter.parse("")
+        val r2 = TextImporter.parse("   \n\n  ")
+        val r3 = CsvImporter.parse("")
+        val r4 = HtmlImporter.parse("")
+        println("空输入结果：${r1.courses.size}, ${r2.courses.size}, ${r3.courses.size}, ${r4.courses.size}")
+        assertEquals(0, r1.courses.size)
+        assertEquals(0, r2.courses.size)
+        assertEquals(0, r3.courses.size)
+        assertEquals(0, r4.courses.size)
+    }
+
+    @Test
+    fun `边界 超范围节次会被约束`() {
+        val text = "高等数学 张三 周一 1-99节"
+        val result = TextImporter.parse(text)
+        result.courses.forEach { println("  ${it.name} ${it.startSection}-${it.endSection}") }
+        assertEquals(1, result.courses.size)
+        assertTrue("节次应被约束到合理范围", result.courses[0].endSection <= 20)
+    }
+
+    @Test
+    fun `合并 同课相邻会合并 不同老师不合并`() {
+        val courses = listOf(
+            Course(name = "高数", teacher = "张三", dayOfWeek = 0, startSection = 1, endSection = 2),
+            Course(name = "高数", teacher = "张三", dayOfWeek = 0, startSection = 3, endSection = 4),
+            Course(name = "高数", teacher = "李四", dayOfWeek = 0, startSection = 5, endSection = 6),
+        )
+        val blocks = mergeCourses(courses, week = 1, maxSections = 12)
+        println("=== 合并结果 ${blocks.size} 块 ===")
+        blocks.forEach { println("  ${it.name}(${it.teacher}) 第${it.startSection}-${it.endSection}节") }
+
+        assertEquals("张三的高数应合并成 1 块，李四单独 1 块", 2, blocks.size)
+        val zhang = blocks.first { it.teacher == "张三" }
+        assertEquals(1, zhang.startSection)
+        assertEquals(4, zhang.endSection)
     }
 }
