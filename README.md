@@ -11,6 +11,7 @@
 - ✅ 同课合并（同一天、同名同老师且节次相邻的课自动连成一块）
 - ✅ 节次时间表自定义、当前课高亮与倒计时
 - ✅ **粘贴文本导入**（复制任意课表文字，一键识别）
+- ✅ **教务系统导入**（JS 适配脚本框架，可扩展各学校）
 - ✅ **WakeUp 口令导入**（见下方说明）
 - ✅ 文件导入：CSV / HTML 网页课表 / Excel(.xlsx)
 - ✅ 上课提醒、次日课程提醒
@@ -33,6 +34,33 @@
 ```
 
 会尽力识别课程名、老师、地点、星期、节次、周次。
+
+### 方式二：教务系统导入（适配脚本）
+
+内置 JS 脚本引擎（QuickJS），通过**适配脚本**兼容各学校教务系统。
+
+- 在「导入 → 教务系统导入」选择学校适配器，输入学号密码即可；
+- 适配脚本用 JavaScript 编写，API 见 App 内示例脚本注释；
+- 支持从远端仓库更新适配脚本（仓库为 JSON 数组，字段：`id` / `name` / `script`）；
+- 也可在 App 内直接编辑脚本，保存后立即使用。
+
+**脚本 API 摘要：**
+
+```javascript
+async function getSchedule(params) {
+  // params.username / params.password
+  const res = await http.postForm('https://jw.example.edu/login',
+                                  { username: params.username, password: params.password });
+  // http.get / http.post / http.postForm 均返回 { status, body }
+  // 还有 log() / md5() / sha1() / base64.encode/decode
+  setTimeTable([{ node: 1, start: '08:00', end: '08:45' }]);  // 可选：作息时间
+  setSemesterStart('2026-09-01');                             // 可选：开学日期
+  done([{ name: '高等数学', teacher: '张三', room: 'A101',
+          day: 0, startNode: 1, step: 2, weeks: '1-16' }]);
+}
+```
+
+> 说明：适配脚本需要针对每个学校单独编写（各校教务系统差异很大）。仓库内置的是示例脚本，供你参照修改。
 
 ### 方式二：WakeUp 课程表口令导入
 

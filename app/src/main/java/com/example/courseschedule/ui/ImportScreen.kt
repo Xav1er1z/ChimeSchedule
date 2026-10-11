@@ -61,6 +61,7 @@ private enum class ImportType { CSV, HTML, XLSX }
 fun ImportScreen(
     viewModel: ScheduleViewModel,
     onBack: () -> Unit,
+    onOpenEdu: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -173,6 +174,10 @@ fun ImportScreen(
             TutorialCard()
 
             Spacer(Modifier.height(20.dp))
+            ImportButton("教务系统导入", "选择学校适配脚本，输入账号密码一键导入") {
+                onOpenEdu()
+            }
+            Spacer(Modifier.height(12.dp))
             ImportButton("粘贴文本导入", "从剪贴板粘贴课表文字，一键识别（推荐）") {
                 val clip = getClipboardText(context)
                 if (clip.isBlank()) {

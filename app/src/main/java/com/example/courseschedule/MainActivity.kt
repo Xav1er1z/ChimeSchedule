@@ -33,6 +33,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.courseschedule.data.BackgroundMode
 import com.example.courseschedule.data.ThemeMode
+import com.example.courseschedule.ui.EduImportScreen
 import com.example.courseschedule.ui.ImportScreen
 import com.example.courseschedule.ui.ScheduleScreen
 import com.example.courseschedule.ui.ScheduleViewModel
@@ -88,7 +89,14 @@ class MainActivity : ComponentActivity() {
                                 SettingsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
                             }
                             composable("import") {
-                                ImportScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+                                ImportScreen(
+                                    viewModel = viewModel,
+                                    onBack = { navController.popBackStack() },
+                                    onOpenEdu = { navController.navigate("edu") },
+                                )
+                            }
+                            composable("edu") {
+                                EduImportScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
                             }
                         }
                     }
