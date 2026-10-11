@@ -22,14 +22,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import com.example.courseschedule.import.CsvImporter
 import com.example.courseschedule.import.HtmlImporter
 import com.example.courseschedule.import.ImportResult
+import com.example.courseschedule.import.TextImporter
+import com.example.courseschedule.import.WakeUpImporter
 import com.example.courseschedule.import.XlsxImporter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -63,6 +68,8 @@ fun ImportScreen(
     var importing by remember { mutableStateOf(false) }
 
     var pendingType by remember { mutableStateOf(ImportType.CSV) }
+    var showWakeUpDialog by remember { mutableStateOf(false) }
+    var wakeUpCode by remember { mutableStateOf("") }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -74,6 +81,54 @@ fun ImportScreen(
                 importing = false
             }
         }
+    }
+
+    if (showWakeUpDialog) {
+        AlertDialog(
+            onDismissRequest = { showWakeUpDialog = false },
+            title = { Text("WakeUp 口令导入") },
+            text = {
+                Column {
+                    Text(
+                        "在 WakeUp 课程表中点「分享课表」复制口令，粘贴到下面。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = wakeUpCode,
+                        onValueChange = { wakeUpCode = it },
+                        label = { Text("分享口令") },
+                        minLines = 3,
+                        maxLines = 6,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = {
+                        val clip = getClipboardText(context)
+                        if (clip.isNotBlank()) wakeUpCode = clip
+                    }) { Text("从剪贴板粘贴") }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = wakeUpCode.isNotBlank() && !importing,
+                    onClick = {
+                        showWakeUpDialog = false
+                        importing = true
+                        val code = wakeUpCode
+                        scope.launch {
+                            val r = withContext(Dispatchers.IO) { WakeUpImporter.import(code) }
+                            result = r
+                            importing = false
+                        }
+                    },
+                ) { Text("导入") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showWakeUpDialog = false }) { Text("取消") }
+            },
+        )
     }
 
     Scaffold(
@@ -118,7 +173,20 @@ fun ImportScreen(
             TutorialCard()
 
             Spacer(Modifier.height(20.dp))
-            ImportButton("导入 CSV 文件", "最稳定，推荐使用") {
+            ImportButton("粘贴文本导入", "从剪贴板粘贴课表文字，一键识别（推荐）") {
+                val clip = getClipboardText(context)
+                if (clip.isBlank()) {
+                    result = ImportResult(warnings = listOf("剪贴板是空的，请先复制课表文字。"))
+                } else {
+                    result = TextImporter.parse(clip)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            ImportButton("WakeUp 口令导入", "粘贴 WakeUp 课程表的分享口令") {
+                showWakeUpDialog = true
+            }
+            Spacer(Modifier.height(12.dp))
+            ImportButton("导入 CSV 文件", "每行一门课，最稳定") {
                 pendingType = ImportType.CSV
                 launcher.launch("text/*")
             }
@@ -300,6 +368,16 @@ private fun dayLabel(day: Int): String =
 
 private fun readText(context: Context, uri: Uri): String =
     context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
+
+/** 读取剪贴板文本 */
+private fun getClipboardText(context: Context): String {
+    return try {
+        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        cm.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
+    } catch (e: Exception) {
+        ""
+    }
+}
 
 private fun readBytes(context: Context, uri: Uri): ByteArray =
     context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
