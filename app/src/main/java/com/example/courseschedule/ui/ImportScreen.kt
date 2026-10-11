@@ -119,8 +119,11 @@ fun ImportScreen(
                         importing = true
                         val code = wakeUpCode
                         scope.launch {
-                            val r = withContext(Dispatchers.IO) { WakeUpImporter.import(code) }
-                            result = r
+                            result = try {
+                                withContext(Dispatchers.IO) { WakeUpImporter.import(code) }
+                            } catch (e: Throwable) {
+                                ImportResult(warnings = listOf("导入失败：${e.message ?: e.javaClass.simpleName}"))
+                            }
                             importing = false
                         }
                     },
@@ -183,7 +186,15 @@ fun ImportScreen(
                 if (clip.isBlank()) {
                     result = ImportResult(warnings = listOf("剪贴板是空的，请先复制课表文字。"))
                 } else {
-                    result = TextImporter.parse(clip)
+                    importing = true
+                    scope.launch {
+                        result = try {
+                            withContext(Dispatchers.Default) { TextImporter.parse(clip) }
+                        } catch (e: Throwable) {
+                            ImportResult(warnings = listOf("解析失败：${e.message ?: e.javaClass.simpleName}"))
+                        }
+                        importing = false
+                    }
                 }
             }
             Spacer(Modifier.height(12.dp))

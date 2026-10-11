@@ -145,4 +145,23 @@ class ImporterTest {
         assertEquals(1, zhang.startSection)
         assertEquals(4, zhang.endSection)
     }
+
+    @Test
+    fun `合并 空课程列表不会崩溃`() {
+        val blocks = mergeCourses(emptyList(), week = 1, maxSections = 12)
+        assertEquals(0, blocks.size)
+    }
+
+    @Test
+    fun `合并 非法节次不会崩溃`() {
+        val courses = listOf(
+            Course(name = "异常课", dayOfWeek = 0, startSection = 0, endSection = 0),
+            Course(name = "异常课2", dayOfWeek = 9, startSection = -5, endSection = -1),
+            Course(name = "正常课", dayOfWeek = 1, startSection = 1, endSection = 2),
+        )
+        val blocks = mergeCourses(courses, week = 1, maxSections = 12)
+        println("合并结果：${blocks.map { "${it.name} ${it.startSection}-${it.endSection}" }}")
+        // 不崩溃即通过，正常课应保留
+        assertTrue(blocks.any { it.name == "正常课" })
+    }
 }

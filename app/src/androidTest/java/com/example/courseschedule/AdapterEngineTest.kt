@@ -106,4 +106,23 @@ class AdapterEngineTest {
         println("内置适配器：${all.map { it.id }}")
         assertTrue("应至少有一个内置适配器", all.isNotEmpty())
     }
+
+    @Test
+    fun wakeUpImport_badInputs_neverCrash() {
+        // 各种畸形口令都不能让 App 崩溃（真机环境才能正确验证 org.json 行为）
+        val badInputs = listOf(
+            "", "   ", "abc", "!!!!!!!!!!!!!!!!",
+            "a".repeat(1000), "😀😀😀", "\u0000\u0001\u0002",
+            "====", "aGVsbG8=",
+            "中文口令测试", "{\"fake\":\"json\"}",
+        )
+        badInputs.forEach { input ->
+            try {
+                val r = com.example.courseschedule.import.WakeUpImporter.import(input)
+                println("输入「${input.take(20)}」-> 课程 ${r.courses.size}，警告 ${r.warnings.firstOrNull()}")
+            } catch (e: Throwable) {
+                throw AssertionError("输入「${input.take(20)}」导致崩溃：${e.javaClass.simpleName} ${e.message}", e)
+            }
+        }
+    }
 }
