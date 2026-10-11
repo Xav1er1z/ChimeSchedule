@@ -6,8 +6,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * 苹果风格的字体层级：
- * 大标题收紧字距（负 letterSpacing），正文用系统默认字体（Android 默认即是类似 SF 的无衬线字体）。
+ * 字体层级：
+ * 大标题收紧字距（负 letterSpacing），正文用系统默认无衬线字体。
  */
 val AppTypography = Typography(
     headlineLarge = TextStyle(

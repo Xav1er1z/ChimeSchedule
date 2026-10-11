@@ -26,7 +26,7 @@ import dev.chrisbanes.haze.blur.materials.HazeMaterials
 val LocalHazeState = compositionLocalOf<HazeState> { error("HazeState 未提供") }
 
 /**
- * 真·毛玻璃：把背后内容模糊后透出来（iOS 毛玻璃效果）。
+ * 真·毛玻璃：把背后内容模糊后透出来。
  * 需要配合 MainActivity 里的 hazeSource 背景源使用。
  */
 fun Modifier.frostedGlass(corner: Dp = 16.dp): Modifier = composed {
@@ -40,7 +40,7 @@ fun Modifier.frostedGlass(corner: Dp = 16.dp): Modifier = composed {
         )
 }
 
-/** 苹果式按压反馈：160ms 缩放至 0.97，无回弹 */
+/** 按压反馈：160ms 缩放至 0.97，无回弹 */
 @Composable
 fun Modifier.pressableClickable(
     enabled: Boolean = true,

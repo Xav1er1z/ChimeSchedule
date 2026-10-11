@@ -2,18 +2,6 @@ package com.example.courseschedule.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// —— iOS 系统色 ——
-val iOSBlue = Color(0xFF007AFF)
-val iOSGreen = Color(0xFF34C759)
-val iOSOrange = Color(0xFFFF9500)
-val iOSRed = Color(0xFFFF3B30)
-val iOSPurple = Color(0xFF5856D6)
-val iOSDeepPurple = Color(0xFFAF52DE)
-val iOSPink = Color(0xFFFF2D55)
-val iOSTeal = Color(0xFF5AC8FA)
-val iOSYellow = Color(0xFFFFCC00)
-val iOSBrown = Color(0xFFA2845E)
-
 /** 课程可选颜色（ARGB Long 值，便于持久化） */
 val courseColorArgb: List<Long> = listOf(
     0xFF007AFF, // 蓝

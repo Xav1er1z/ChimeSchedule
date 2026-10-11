@@ -1,6 +1,6 @@
 # 课程表 App（Android）
 
-一款苹果风格（iOS 设计规范）的安卓课程表，用 Kotlin + Jetpack Compose 开发，**纯本地、不联网**。
+一款简洁美观的安卓课程表应用，用 Kotlin + Jetpack Compose 开发，**纯本地、不联网**。
 
 ## 功能
 
