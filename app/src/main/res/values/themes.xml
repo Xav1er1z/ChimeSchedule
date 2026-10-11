@@ -1,0 +1,7 @@
+<resources>
+    <!-- 主题：Compose 应用只需要一个无 ActionBar 的基础主题，深色/浅色由 Compose 内部处理 -->
+    <style name="Theme.CourseSchedule" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

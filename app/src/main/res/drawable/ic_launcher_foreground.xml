@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 日历本体 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,38 L68,38 A4,4 0 0 1 72,42 L72,70 A4,4 0 0 1 68,74 L40,74 A4,4 0 0 1 36,70 L36,42 A4,4 0 0 1 40,38 Z" />
+    <!-- 顶部两个装订环 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44,32 L44,43 L52,43 L52,32 Z M56,32 L56,43 L64,43 L64,32 Z" />
+    <!-- 课程色块 -->
+    <path android:fillColor="#FF9500" android:pathData="M40,46 L68,46 L68,52 L40,52 Z" />
+    <path android:fillColor="#34C759" android:pathData="M40,56 L68,56 L68,62 L40,62 Z" />
+    <path android:fillColor="#007AFF" android:pathData="M40,66 L68,66 L68,70 L40,70 Z" />
+</vector>
